@@ -1,44 +1,972 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-select=none" />
-  <title>Dynamic Island Gestures</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Dynamic Island & Fluid Cloud Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --spring-easing: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      --fluid-easing: cubic-bezier(0.2, 0.9, 0.1, 1.0);
+      --apple-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: radial-gradient(circle at 50% 20%, #1e1e24, #0b0c10);
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    .font-mono-numbers {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Hardware bezel shine & phone shell */
+    .phone-chassis {
+      box-shadow: 
+        0 0 0 12px #26262b,
+        0 0 0 14px #1c1c1f,
+        0 30px 60px rgba(0, 0, 0, 0.85),
+        inset 0 0 6px rgba(255, 255, 255, 0.15);
+    }
+
+    /* Core Island Surface with OLED True Black & Subtle Border Glow */
+    .island-surface {
+      background-color: #000000;
+      box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.8),
+                  0 0 0 0.8px rgba(255, 255, 255, 0.14);
+      transition: width 0.42s var(--spring-easing),
+                  height 0.42s var(--spring-easing),
+                  border-radius 0.42s var(--fluid-easing),
+                  transform 0.35s var(--spring-easing),
+                  opacity 0.25s ease;
+      transform-origin: top center;
+    }
+
+    /* Waveform visualizer bars */
+    @keyframes wave-bounce {
+      0%, 100% { height: 4px; }
+      50% { height: 18px; }
+    }
+    .wave-bar {
+      animation: wave-bounce 1.2s infinite ease-in-out;
+    }
+    .wave-bar:nth-child(1) { animation-delay: 0.0s; }
+    .wave-bar:nth-child(2) { animation-delay: 0.2s; }
+    .wave-bar:nth-child(3) { animation-delay: 0.4s; }
+    .wave-bar:nth-child(4) { animation-delay: 0.15s; }
+    .wave-bar:nth-child(5) { animation-delay: 0.35s; }
+
+    /* Fluid Cloud radar ping */
+    @keyframes radar-pulse {
+      0% { transform: scale(0.9); opacity: 0.8; }
+      70% { transform: scale(1.6); opacity: 0; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+    .radar-ring {
+      animation: radar-pulse 2s infinite cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    /* Glass card overlay for phone widgets */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Holding press scale feedback */
+    .island-surface.is-holding {
+      transform: scale(0.94);
+      transition: transform 0.15s ease-out;
+    }
+
+    /* Dismissed upward or swiped away */
+    .island-surface.is-dismissed {
+      transform: translateY(-60px) scale(0.5);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Fluid detached secondary bubble animation */
+    .fluid-bubble {
+      background: #000000;
+      box-shadow: 0 10px 24px -2px rgba(0, 0, 0, 0.7),
+                  0 0 0 0.8px rgba(255, 255, 255, 0.14);
+      transition: all 0.4s var(--spring-easing);
+    }
+
+    /* Hide scrollbar for cleanly scrollable dashboard */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
 </head>
-<body>
-  <div class="viewport">
-    <!-- Camera cutout reference -->
-    <div class="camera-cutout"></div>
+<body class="min-h-screen text-slate-100 flex flex-col items-center justify-start p-3 sm:p-6 no-scrollbar">
 
-    <!-- The Island Element -->
-    <div id="island" class="island compact">
-      <!-- Minimal Compact State Content -->
-      <div class="content compact-content">
-        <span class="dot"></span>
-        <span class="label">Now Playing</span>
+  <header class="w-full max-w-5xl flex items-center justify-between py-3 mb-2">
+    <div class="flex items-center space-x-3">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
       </div>
+      <div>
+        <h1 class="font-bold text-lg leading-tight text-white tracking-tight">Dynamic Island <span class="text-xs font-normal text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded-full border border-cyan-800 ml-1">+ Fluid Cloud</span></h1>
+        <p class="text-xs text-slate-400">Interactive Morphing Architecture</p>
+      </div>
+    </div>
+    <div id="gesture-hint" class="hidden sm:flex items-center space-x-2 text-xs text-slate-400 bg-slate-900/60 px-3 py-1.5 rounded-full border border-slate-800">
+      <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+      <span>Click to toggle · Long-press to expand · Swipe up to dismiss</span>
+    </div>
+  </header>
 
-      <!-- Expanded State Content -->
-      <div class="content expanded-content">
-        <div class="expanded-header">
-          <div class="track-artwork"></div>
-          <div class="track-meta">
-            <h4>Song Title</h4>
-            <p>Artist Name</p>
+  <div class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start justify-center">
+
+    <!-- Mobile Screen Frame (Left / Center Column) -->
+    <div class="lg:col-span-6 flex flex-col items-center justify-center">
+      <div class="phone-chassis relative w-[340px] sm:w-[375px] h-[720px] bg-black rounded-[52px] overflow-hidden border-[4px] border-[#38383e] select-none flex flex-col">
+        
+        <!-- Wallpaper Background Image & Glows -->
+        <div class="absolute inset-0 z-0 bg-gradient-to-br from-indigo-950 via-slate-950 to-neutral-950">
+          <div class="absolute -top-24 -left-20 w-72 h-72 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute bottom-10 -right-20 w-80 h-80 bg-cyan-600/15 rounded-full blur-3xl pointer-events-none"></div>
+          <!-- Wallpaper abstract lockscreen art -->
+          <div class="absolute inset-0 opacity-40 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px]"></div>
+        </div>
+
+        <!-- System Status Bar -->
+        <div class="relative z-30 w-full pt-3 px-7 flex items-center justify-between text-xs font-medium text-white/90">
+          <span id="phone-clock" class="font-mono-numbers tracking-tight font-semibold text-[13px]">09:41</span>
+          <div class="flex items-center space-x-2">
+            <!-- Cellular Signal -->
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9zm0 2c3.87 0 7 3.13 7 7 0 1.58-.52 3.04-1.41 4.22L12 19.42l-5.59-3.2A6.96 6.96 0 0 1 5 12c0-3.87 3.13-7 7-7z"/></svg>
+            <!-- 5G / WiFi -->
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98A16.88 16.88 0 0 0 12 4zm0 3c3.78 0 7.22 1.48 9.77 3.9L12 18.66 2.23 10.9C4.78 8.48 8.22 7 12 7z"/></svg>
+            <!-- Battery Indicator -->
+            <div class="flex items-center space-x-0.5">
+              <span class="text-[10px] font-mono-numbers text-slate-300">84%</span>
+              <div class="w-5 h-2.5 rounded-[4px] border border-white/50 p-0.5 flex items-center">
+                <div class="h-full w-[80%] bg-emerald-400 rounded-[1.5px]"></div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="expanded-controls">
-          <button type="button">⏮</button>
-          <button type="button">⏸</button>
-          <button type="button">⏭</button>
+
+        <!-- Center Island Mount Container -->
+        <div class="relative z-40 w-full flex items-center justify-center pt-1.5 px-4 min-h-[46px]">
+          
+          <!-- Physical Camera / Sensor Cutout (Always Present Behind Island) -->
+          <div class="absolute top-3 left-1/2 -translate-x-1/2 w-[72px] h-[22px] bg-black rounded-full pointer-events-none flex items-center justify-between px-2.5 z-20 opacity-90">
+            <div class="w-2.5 h-2.5 rounded-full bg-[#0a0a14] border border-neutral-800"></div>
+            <div class="w-2.5 h-2.5 rounded-full bg-[#05111c] ring-1 ring-blue-900/40"></div>
+          </div>
+
+          <!-- The Morphing Island Capsule -->
+          <div id="dynamic-island" 
+               class="island-surface relative flex items-center justify-between text-white cursor-pointer select-none overflow-hidden touch-none"
+               style="width: 124px; height: 32px; border-radius: 9999px;">
+
+            <!-- ================= STATE 1: IDLE COMPACT PILL ================= -->
+            <div id="content-idle" class="w-full h-full flex items-center justify-between px-3 text-[11px] font-medium transition-opacity duration-200">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span class="text-neutral-400 text-[10px] tracking-wider uppercase font-semibold">Active</span>
+            </div>
+
+            <!-- ================= STATE 2: MUSIC COMPACT ================= -->
+            <div id="content-music-compact" class="hidden w-full h-full items-center justify-between px-3 text-xs">
+              <div class="flex items-center space-x-2">
+                <div class="w-5 h-5 rounded-md bg-gradient-to-tr from-pink-600 to-amber-500 flex items-center justify-center text-[10px]">♫</div>
+                <span class="text-xs font-medium text-white truncate max-w-[70px]">Blinding</span>
+              </div>
+              <div class="flex items-end space-x-0.5 h-3.5">
+                <div class="wave-bar w-0.5 bg-emerald-400 rounded-full"></div>
+                <div class="wave-bar w-0.5 bg-emerald-400 rounded-full"></div>
+                <div class="wave-bar w-0.5 bg-emerald-400 rounded-full"></div>
+                <div class="wave-bar w-0.5 bg-emerald-400 rounded-full"></div>
+              </div>
+            </div>
+
+            <!-- ================= STATE 3: CALL COMPACT ================= -->
+            <div id="content-call-compact" class="hidden w-full h-full items-center justify-between px-3 text-xs">
+              <div class="flex items-center space-x-2 text-emerald-400">
+                <svg class="w-3.5 h-3.5 animate-bounce" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/></svg>
+                <span class="text-white text-[11px] font-mono-numbers" id="compact-call-timer">02:14</span>
+              </div>
+              <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></div>
+            </div>
+
+            <!-- ================= STATE 4: TIMER COMPACT ================= -->
+            <div id="content-timer-compact" class="hidden w-full h-full items-center justify-between px-3 text-xs">
+              <span class="text-amber-400 text-xs font-semibold">⏱</span>
+              <span id="compact-stopwatch-display" class="font-mono-numbers text-amber-300 text-[11px] font-medium">04:19</span>
+            </div>
+
+            <!-- ================= STATE 5: FLUID CLOUD DELIVERY COMPACT ================= -->
+            <div id="content-fluid-compact" class="hidden w-full h-full items-center justify-between px-3 text-xs">
+              <div class="flex items-center space-x-1.5">
+                <span class="text-cyan-400 text-xs">🛵</span>
+                <span class="text-[11px] text-cyan-200 font-medium">8 min</span>
+              </div>
+              <div class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+            </div>
+
+            <!-- ================= EXPANDED VIEW: RICH CARD (Dynamic Island + Oppo Modal) ================= -->
+            <div id="content-expanded" class="hidden absolute inset-0 w-full h-full flex-col justify-between p-4 opacity-0 transition-opacity duration-300">
+              
+              <!-- MUSIC EXPANDED -->
+              <div id="expanded-music" class="hidden flex-col h-full justify-between">
+                <div class="flex items-center space-x-3">
+                  <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 flex items-center justify-center text-2xl shadow-lg shadow-pink-900/40">
+                    🎵
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <h3 class="text-white text-sm font-semibold truncate">Blinding Lights</h3>
+                    <p class="text-slate-400 text-xs truncate">The Weeknd — After Hours</p>
+                    <div class="flex items-center space-x-1.5 mt-1.5">
+                      <span class="text-[9px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">Lossless</span>
+                      <span class="text-[9px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">Dolby Atmos</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Scrubbing progress bar -->
+                <div class="space-y-1 my-2">
+                  <div class="w-full bg-neutral-800 rounded-full h-1 overflow-hidden">
+                    <div id="music-progress" class="bg-white h-full w-[45%] rounded-full transition-all duration-300"></div>
+                  </div>
+                  <div class="flex justify-between text-[10px] text-neutral-400 font-mono-numbers">
+                    <span id="music-current-time">1:34</span>
+                    <span>3:20</span>
+                  </div>
+                </div>
+
+                <!-- Playback controls -->
+                <div class="flex items-center justify-around pt-1">
+                  <button class="p-2 text-neutral-400 hover:text-white transition active:scale-90" onclick="event.stopPropagation()">
+                    <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                  </button>
+                  <button id="btn-music-play" class="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition" onclick="togglePlayMusic(event)">
+                    <svg id="icon-play" class="w-5 h-5 fill-current ml-0.5 hidden" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="icon-pause" class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                  </button>
+                  <button class="p-2 text-neutral-400 hover:text-white transition active:scale-90" onclick="event.stopPropagation()">
+                    <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- PHONE CALL EXPANDED -->
+              <div id="expanded-call" class="hidden flex-col h-full justify-between">
+                <div class="flex items-center space-x-3.5">
+                  <div class="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">
+                    👤
+                  </div>
+                  <div>
+                    <h3 class="text-white text-base font-semibold">Sarah Jenkins</h3>
+                    <p class="text-emerald-400 text-xs font-mono-numbers flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Active Call <span id="expanded-call-timer">02:14</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 my-2">
+                  <button class="py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-medium flex flex-col items-center justify-center gap-1 active:scale-95" onclick="event.stopPropagation()">
+                    <svg class="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>
+                    <span>Mute</span>
+                  </button>
+                  <button class="py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-medium flex flex-col items-center justify-center gap-1 active:scale-95" onclick="event.stopPropagation()">
+                    <svg class="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M12 18V6l-4 4H4v4h4l4 4z"/></svg>
+                    <span>Audio</span>
+                  </button>
+                  <button class="py-2 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-medium text-white flex flex-col items-center justify-center gap-1 active:scale-95 transition" onclick="endCall(event)">
+                    <svg class="w-4 h-4 fill-current rotate-[135deg]" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/></svg>
+                    <span>End</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- TIMER EXPANDED -->
+              <div id="expanded-timer" class="hidden flex-col h-full justify-between">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-xl">⏱</span>
+                    <span class="text-xs uppercase tracking-wider text-amber-400 font-semibold">Stopwatch</span>
+                  </div>
+                  <span id="expanded-stopwatch-display" class="font-mono-numbers text-2xl font-bold text-white tracking-wider">04:19.4</span>
+                </div>
+                
+                <div class="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden my-2">
+                  <div id="timer-progress-bar" class="bg-amber-400 h-full w-[65%] rounded-full"></div>
+                </div>
+
+                <div class="flex items-center justify-end space-x-3 pt-1">
+                  <button class="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-medium text-white active:scale-95" onclick="resetTimer(event)">Reset</button>
+                  <button id="btn-timer-toggle" class="px-5 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-xs font-semibold text-black active:scale-95" onclick="toggleTimer(event)">Pause</button>
+                </div>
+              </div>
+
+              <!-- FLUID CLOUD (OPPO COLOROS) DELIVERY EXPANDED -->
+              <div id="expanded-fluid" class="hidden flex-col h-full justify-between">
+                <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs">🛵</div>
+                    <div>
+                      <h4 class="text-xs font-bold text-white">Food Delivery</h4>
+                      <p class="text-[10px] text-cyan-300 font-medium">Driver is approaching</p>
+                    </div>
+                  </div>
+                  <span class="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 text-[10px] font-mono-numbers font-semibold">ETA 8 MIN</span>
+                </div>
+
+                <div class="relative py-2">
+                  <!-- Stepper dots -->
+                  <div class="h-1 bg-neutral-800 rounded-full w-full relative">
+                    <div class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full w-3/4"></div>
+                  </div>
+                  <div class="flex justify-between text-[10px] text-slate-400 mt-1.5">
+                    <span class="text-emerald-400">Order Placed</span>
+                    <span class="text-emerald-400">Picked Up</span>
+                    <span class="text-cyan-300 font-medium">Near You</span>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between text-xs pt-1">
+                  <span class="text-neutral-400 text-[11px]">Rider: Carlos M. (Honda CB)</span>
+                  <button class="px-3 py-1 bg-white/10 hover:bg-white/20 rounded-full text-white text-[11px] font-medium" onclick="event.stopPropagation()">Contact</button>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Oppo Fluid Cloud Secondary Detached Satellite Bubble -->
+          <div id="fluid-detached-bubble" 
+               class="fluid-bubble hidden absolute top-1.5 right-6 w-9 h-9 rounded-full flex items-center justify-center cursor-pointer text-xs z-30"
+               onclick="handleBubbleClick()">
+            <span id="detached-bubble-icon" class="text-sm">🛵</span>
+            <div class="radar-ring absolute inset-0 rounded-full border border-cyan-400/60 pointer-events-none"></div>
+          </div>
+
         </div>
+
+        <!-- Phone Lockscreen / Homescreen Preview Mock Content -->
+        <div class="relative z-10 flex-1 flex flex-col justify-between p-6 pt-12 text-center pointer-events-none">
+          <!-- Lockscreen Time & Date -->
+          <div class="mt-4">
+            <div id="lockscreen-date" class="text-slate-400 font-medium text-xs tracking-wide">Saturday, October 3</div>
+            <div id="lockscreen-clock" class="text-6xl font-extralight tracking-tight text-white/95 mt-1 font-mono-numbers">09:41</div>
+          </div>
+
+          <!-- Phone Home Mock Widgets (To demonstrate interaction depth) -->
+          <div class="space-y-3 mb-6">
+            <div class="glass-card p-3.5 rounded-2xl flex items-center justify-between text-left">
+              <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg">⛅</div>
+                <div>
+                  <div class="text-xs font-semibold text-white">Cupertino</div>
+                  <div class="text-[11px] text-slate-400">Mostly Clear · H:72° L:55°</div>
+                </div>
+              </div>
+              <span class="text-xl font-light text-white font-mono-numbers">68°</span>
+            </div>
+
+            <div class="glass-card p-3 rounded-2xl flex items-center justify-between text-left">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-sm font-semibold">📅</div>
+                <div>
+                  <div class="text-xs font-medium text-white">Design Sync Meeting</div>
+                  <div class="text-[10px] text-slate-400">10:30 AM – 11:15 AM</div>
+                </div>
+              </div>
+              <span class="text-[11px] bg-white/10 px-2 py-0.5 rounded-full text-slate-300 font-medium">In 45m</span>
+            </div>
+          </div>
+
+          <!-- Bottom Lockscreen Shortcuts & Home Indicator Bar -->
+          <div class="pb-1">
+            <div class="flex justify-between items-center px-4 mb-4">
+              <div class="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-sm">🔦</div>
+              <div class="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-sm">📷</div>
+            </div>
+            <!-- Home Bar Indicator -->
+            <div class="w-32 h-1 bg-white/60 rounded-full mx-auto"></div>
+          </div>
+        </div>
+
+      </div>
+      
+      <!-- Quick hint indicator below phone -->
+      <div class="mt-4 text-center">
+        <p class="text-xs text-slate-400 flex items-center justify-center gap-1.5">
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+          Simulating tactile haptic responses & dynamic physics
+        </p>
       </div>
     </div>
 
-    <button id="reset-btn" class="reset-btn">Reset Island</button>
+    <!-- Control Deck / Interactive Inspector (Right Column) -->
+    <div class="lg:col-span-6 space-y-5">
+      
+      <!-- Event Mode Selector -->
+      <div class="glass-card p-5 rounded-3xl border border-slate-800">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>
+            Simulated Activity Modes
+          </h2>
+          <span class="text-[11px] text-slate-400">Click to switch island state</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <!-- Music -->
+          <button onclick="setActivityMode('music')" class="mode-btn p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 flex items-center space-x-3 text-left transition group active:scale-[0.98]">
+            <div class="w-9 h-9 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center text-lg group-hover:scale-110 transition">🎵</div>
+            <div>
+              <div class="text-xs font-semibold text-white">Apple Music</div>
+              <div class="text-[10px] text-slate-400">Audio visualizer & controls</div>
+            </div>
+          </button>
+
+          <!-- Phone Call -->
+          <button onclick="setActivityMode('call')" class="mode-btn p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 flex items-center space-x-3 text-left transition group active:scale-[0.98]">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg group-hover:scale-110 transition">📞</div>
+            <div>
+              <div class="text-xs font-semibold text-white">Incoming Call</div>
+              <div class="text-[10px] text-slate-400">Active status & timer</div>
+            </div>
+          </button>
+
+          <!-- Timer / Stopwatch -->
+          <button onclick="setActivityMode('timer')" class="mode-btn p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 flex items-center space-x-3 text-left transition group active:scale-[0.98]">
+            <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg group-hover:scale-110 transition">⏱️</div>
+            <div>
+              <div class="text-xs font-semibold text-white">Stopwatch</div>
+              <div class="text-[10px] text-slate-400">Running counter</div>
+            </div>
+          </button>
+
+          <!-- Oppo Fluid Cloud Delivery -->
+          <button onclick="setActivityMode('fluid')" class="mode-btn p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 flex items-center space-x-3 text-left transition group active:scale-[0.98]">
+            <div class="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-lg group-hover:scale-110 transition">🛵</div>
+            <div>
+              <div class="text-xs font-semibold text-white">Oppo Fluid Cloud</div>
+              <div class="text-[10px] text-slate-400">Live order tracker</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Oppo Morphing Features & Multi-Bubble Controller -->
+      <div class="glass-card p-5 rounded-3xl border border-slate-800">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 mb-3">
+          <span class="w-2.5 h-2.5 rounded-sm bg-cyan-500"></span>
+          ColorOS Fluid Cloud Features
+        </h2>
+
+        <div class="space-y-3">
+          <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-900/80 border border-slate-800/80">
+            <div>
+              <div class="text-xs font-semibold text-white">Detached Satellite Bubble</div>
+              <div class="text-[10px] text-slate-400">Splits the pill into two separate islands (Oppo feature)</div>
+            </div>
+            <button id="toggle-split-btn" onclick="toggleMultiBubble()" class="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-xs font-medium text-white transition active:scale-95">
+              Split Pill
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-900/80 border border-slate-800/80">
+            <div>
+              <div class="text-xs font-semibold text-white">Haptic Vibration Simulation</div>
+              <div class="text-[10px] text-slate-400">Triggers navigator.vibrate on mobile browsers</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="haptic-toggle" checked class="sr-only peer">
+              <div class="w-9 h-5 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gesture Manual & Action Trigger Buttons -->
+      <div class="glass-card p-5 rounded-3xl border border-slate-800">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 mb-3">
+          <span class="w-2.5 h-2.5 rounded-sm bg-purple-500"></span>
+          Gesture Actions & Testing
+        </h2>
+
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="triggerExpandManual()" class="py-2.5 px-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-semibold text-white transition active:scale-95">
+            Expand Card
+          </button>
+          <button onclick="triggerCollapseManual()" class="py-2.5 px-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-semibold text-white transition active:scale-95">
+            Compact Pill
+          </button>
+          <button onclick="resetIslandState()" class="py-2.5 px-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-semibold text-emerald-400 transition active:scale-95">
+            Restore / Reset
+          </button>
+        </div>
+
+        <div class="mt-4 p-3 bg-slate-900/60 rounded-xl text-[11px] text-slate-300 space-y-1.5 border border-slate-800/60">
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+            <span><strong>Tap Island:</strong> Collapse card or triggers gentle spring bounce.</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-pink-400"></span>
+            <span><strong>Long Press (350ms):</strong> Elastic squeeze and pops open to expanded card.</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+            <span><strong>Swipe Up or Left (>45px):</strong> Fluid dismiss away into camera cutout.</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
   </div>
 
-  <script src="gesture.js"></script>
+  <script>
+    // State Machine Definitions
+    const STATE_COMPACT = 'compact';
+    const STATE_EXPANDED = 'expanded';
+    const STATE_DISMISSED = 'dismissed';
+
+    let currentState = STATE_COMPACT;
+    let currentActivity = 'music'; // 'idle' | 'music' | 'call' | 'timer' | 'fluid'
+    let isSplitBubble = false;
+    let isPlayingMusic = true;
+    let isTimerRunning = true;
+
+    // Gesture variables
+    let pressTimer = null;
+    let startX = 0;
+    let startY = 0;
+    let isLongPressed = false;
+    let isDragging = false;
+    const LONG_PRESS_DURATION = 350;
+    const SWIPE_THRESHOLD = 45;
+    const MOVEMENT_CANCEL_LIMIT = 8;
+
+    // Elements
+    const island = document.getElementById('dynamic-island');
+    const detachedBubble = document.getElementById('fluid-detached-bubble');
+    const contentExpanded = document.getElementById('content-expanded');
+    const hapticToggle = document.getElementById('haptic-toggle');
+
+    // Timers
+    let callSeconds = 134; // 02:14
+    let stopwatchSeconds = 259.4; // 04:19.4
+
+    island.addEventListener('pointerdown', handlePointerDown);
+    island.addEventListener('pointermove', handlePointerMove);
+    island.addEventListener('pointerup', handlePointerUp);
+    island.addEventListener('pointercancel', handlePointerCancel);
+
+    function triggerHaptic(duration = 20) {
+      if (hapticToggle && hapticToggle.checked && navigator.vibrate) {
+        try {
+          navigator.vibrate(duration);
+        } catch (e) {
+          // Vibration not supported or allowed
+        }
+      }
+    }
+
+    function handlePointerDown(e) {
+      island.setPointerCapture(e.pointerId);
+      startX = e.clientX;
+      startY = e.clientY;
+      isLongPressed = false;
+      isDragging = false;
+
+      // Add gentle holding squish
+      island.classList.add('is-holding');
+
+      pressTimer = setTimeout(() => {
+        isLongPressed = true;
+        island.classList.remove('is-holding');
+        expandIsland();
+        triggerHaptic(35);
+      }, LONG_PRESS_DURATION);
+    }
+
+    function handlePointerMove(e) {
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      // If finger wiggles beyond jitter threshold, cancel long press
+      if (Math.hypot(deltaX, deltaY) > MOVEMENT_CANCEL_LIMIT) {
+        clearTimeout(pressTimer);
+        island.classList.remove('is-holding');
+        isDragging = true;
+      }
+
+      if (isDragging) {
+        // Apply responsive dampening
+        const pullY = Math.min(6, deltaY * 0.35);
+        const pullX = deltaX * 0.25;
+        island.style.transform = `translate(${pullX}px, ${pullY}px)`;
+      }
+    }
+
+    function handlePointerUp(e) {
+      clearTimeout(pressTimer);
+      island.classList.remove('is-holding');
+      
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+      
+      island.style.transform = '';
+
+      // Check for swipe upward or sharp swipe left to dismiss
+      if (deltaY < -SWIPE_THRESHOLD || deltaX < -SWIPE_THRESHOLD * 1.4) {
+        dismissIsland();
+        triggerHaptic([15, 40, 15]);
+        return;
+      }
+
+      // If it was a quick tap (not long-press, not drag)
+      if (!isLongPressed && !isDragging) {
+        triggerHaptic(15);
+        handleTap();
+      }
+    }
+
+    function handlePointerCancel() {
+      clearTimeout(pressTimer);
+      island.classList.remove('is-holding');
+      island.style.transform = '';
+    }
+
+    function handleTap() {
+      if (currentState === STATE_EXPANDED) {
+        collapseIsland();
+      } else {
+        // Apple bounce feedback
+        island.animate([
+          { transform: 'scale(1)' },
+          { transform: 'scale(1.1, 0.95)' },
+          { transform: 'scale(0.96, 1.04)' },
+          { transform: 'scale(1)' }
+        ], {
+          duration: 320,
+          easing: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+        });
+      }
+    }
+
+    function expandIsland() {
+      currentState = STATE_EXPANDED;
+      island.classList.remove('is-dismissed');
+      
+      // Expand dimension to rich card
+      island.style.width = '338px';
+      island.style.height = '180px';
+      island.style.borderRadius = '38px';
+
+      // Hide compact contents
+      hideAllCompactContents();
+
+      // Show expanded view
+      contentExpanded.classList.remove('hidden');
+      setTimeout(() => {
+        contentExpanded.classList.remove('opacity-0');
+      }, 80);
+
+      // Render corresponding rich card for current active mode
+      renderExpandedActivity(currentActivity);
+
+      // Temporarily conceal split satellite bubble if expanded
+      if (isSplitBubble) {
+        detachedBubble.style.transform = 'scale(0)';
+      }
+    }
+
+    function collapseIsland() {
+      currentState = STATE_COMPACT;
+      contentExpanded.classList.add('opacity-0');
+      
+      setTimeout(() => {
+        contentExpanded.classList.add('hidden');
+      }, 200);
+
+      // Restore compact dimensions based on active mode
+      applyCompactDimensions();
+      showActiveCompactContent();
+
+      if (isSplitBubble) {
+        detachedBubble.style.transform = 'scale(1)';
+      }
+    }
+
+    function dismissIsland() {
+      currentState = STATE_DISMISSED;
+      island.classList.add('is-dismissed');
+      if (isSplitBubble) {
+        detachedBubble.style.transform = 'translateY(-40px) scale(0.4)';
+        detachedBubble.style.opacity = '0';
+      }
+    }
+
+    function resetIslandState() {
+      island.classList.remove('is-dismissed');
+      island.style.transform = '';
+      if (isSplitBubble) {
+        detachedBubble.style.transform = 'scale(1)';
+        detachedBubble.style.opacity = '1';
+      }
+      collapseIsland();
+      triggerHaptic(20);
+    }
+
+    function triggerExpandManual() {
+      expandIsland();
+      triggerHaptic(25);
+    }
+
+    function triggerCollapseManual() {
+      collapseIsland();
+      triggerHaptic(20);
+    }
+
+    function applyCompactDimensions() {
+      if (isSplitBubble) {
+        // Oppo Fluid Cloud split capsule is slightly narrower to give room to the detached orb
+        island.style.width = '148px';
+        island.style.height = '34px';
+        island.style.borderRadius = '9999px';
+        return;
+      }
+
+      switch (currentActivity) {
+        case 'music':
+          island.style.width = '178px';
+          island.style.height = '34px';
+          break;
+        case 'call':
+          island.style.width = '164px';
+          island.style.height = '34px';
+          break;
+        case 'timer':
+          island.style.width = '145px';
+          island.style.height = '34px';
+          break;
+        case 'fluid':
+          island.style.width = '160px';
+          island.style.height = '34px';
+          break;
+        default:
+          island.style.width = '124px';
+          island.style.height = '32px';
+      }
+      island.style.borderRadius = '9999px';
+    }
+
+    function hideAllCompactContents() {
+      document.getElementById('content-idle').classList.add('hidden');
+      document.getElementById('content-music-compact').classList.add('hidden');
+      document.getElementById('content-music-compact').classList.remove('flex');
+      document.getElementById('content-call-compact').classList.add('hidden');
+      document.getElementById('content-call-compact').classList.remove('flex');
+      document.getElementById('content-timer-compact').classList.add('hidden');
+      document.getElementById('content-timer-compact').classList.remove('flex');
+      document.getElementById('content-fluid-compact').classList.add('hidden');
+      document.getElementById('content-fluid-compact').classList.remove('flex');
+    }
+
+    function showActiveCompactContent() {
+      hideAllCompactContents();
+      let activeEl = null;
+      if (currentActivity === 'music') activeEl = document.getElementById('content-music-compact');
+      else if (currentActivity === 'call') activeEl = document.getElementById('content-call-compact');
+      else if (currentActivity === 'timer') activeEl = document.getElementById('content-timer-compact');
+      else if (currentActivity === 'fluid') activeEl = document.getElementById('content-fluid-compact');
+      else activeEl = document.getElementById('content-idle');
+
+      if (activeEl) {
+        activeEl.classList.remove('hidden');
+        activeEl.classList.add('flex');
+      }
+    }
+
+    function renderExpandedActivity(mode) {
+      document.getElementById('expanded-music').classList.add('hidden');
+      document.getElementById('expanded-music').classList.remove('flex');
+      document.getElementById('expanded-call').classList.add('hidden');
+      document.getElementById('expanded-call').classList.remove('flex');
+      document.getElementById('expanded-timer').classList.add('hidden');
+  document.getElementById('expanded-timer').classList.remove('flex');
+      document.getElementById('expanded-fluid').classList.add('hidden');
+      document.getElementById('expanded-fluid').classList.remove('flex');
+
+      let targetEl = null;
+      if (mode === 'music') targetEl = document.getElementById('expanded-music');
+      else if (mode === 'call') targetEl = document.getElementById('expanded-call');
+      else if (mode === 'timer') targetEl = document.getElementById('expanded-timer');
+      else if (mode === 'fluid') targetEl = document.getElementById('expanded-fluid');
+
+      if (targetEl) {
+        targetEl.classList.remove('hidden');
+        targetEl.classList.add('flex');
+      }
+    }
+
+    function setActivityMode(mode) {
+      currentActivity = mode;
+      resetIslandState();
+      triggerHaptic(25);
+    }
+
+    function toggleMultiBubble() {
+      isSplitBubble = !isSplitBubble;
+      const toggleBtn = document.getElementById('toggle-split-btn');
+
+      if (isSplitBubble) {
+        toggleBtn.textContent = 'Merge Pill';
+        toggleBtn.classList.replace('bg-cyan-600', 'bg-neutral-700');
+        detachedBubble.classList.remove('hidden');
+        detachedBubble.style.opacity = '1';
+        detachedBubble.style.transform = 'scale(1)';
+
+        // Position main island slightly shifted to the left for authentic Oppo dual pill look
+        island.style.transform = 'translateX(-22px)';
+      } else {
+        toggleBtn.textContent = 'Split Pill';
+        toggleBtn.classList.replace('bg-neutral-700', 'bg-cyan-600');
+        detachedBubble.style.transform = 'scale(0)';
+        detachedBubble.style.opacity = '0';
+        setTimeout(() => detachedBubble.classList.add('hidden'), 350);
+        island.style.transform = '';
+      }
+      applyCompactDimensions();
+      triggerHaptic([20, 30]);
+    }
+
+    function handleBubbleClick() {
+      triggerHaptic(30);
+      detachedBubble.animate([
+        { transform: 'scale(1)' },
+        { transform: 'scale(1.2)' },
+        { transform: 'scale(1)' }
+      ], { duration: 250, easing: 'ease-out' });
+      
+      // Tap bubble pops open delivery card
+      currentActivity = 'fluid';
+      expandIsland();
+    }
+
+    function togglePlayMusic(e) {
+      e.stopPropagation();
+      isPlayingMusic = !isPlayingMusic;
+      const iconPlay = document.getElementById('icon-play');
+      const iconPause = document.getElementById('icon-pause');
+      const waveBars = document.querySelectorAll('.wave-bar');
+
+      if (isPlayingMusic) {
+        iconPlay.classList.add('hidden');
+        iconPause.classList.remove('hidden');
+        waveBars.forEach(bar => bar.style.animationPlayState = 'running');
+      } else {
+        iconPlay.classList.remove('hidden');
+        iconPause.classList.add('hidden');
+        waveBars.forEach(bar => bar.style.animationPlayState = 'paused');
+      }
+      triggerHaptic(20);
+    }
+
+    function endCall(e) {
+      e.stopPropagation();
+      triggerHaptic([30, 50]);
+      currentActivity = 'idle';
+      collapseIsland();
+    }
+
+    function toggleTimer(e) {
+      e.stopPropagation();
+      isTimerRunning = !isTimerRunning;
+      const btn = document.getElementById('btn-timer-toggle');
+      btn.textContent = isTimerRunning ? 'Pause' : 'Resume';
+      btn.classList.toggle('bg-amber-400');
+      btn.classList.toggle('bg-emerald-400');
+      triggerHaptic(20);
+    }
+
+    function resetTimer(e) {
+      e.stopPropagation();
+      stopwatchSeconds = 0;
+      updateStopwatchDisplay();
+      triggerHaptic(20);
+    }
+
+    function updateStopwatchDisplay() {
+      const minutes = Math.floor(stopwatchSeconds / 60);
+      const seconds = Math.floor(stopwatchSeconds % 60);
+      const decimal = Math.floor((stopwatchSeconds * 10) % 10);
+      const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      
+      const compactDisp = document.getElementById('compact-stopwatch-display');
+      const expandedDisp = document.getElementById('expanded-stopwatch-display');
+      if (compactDisp) compactDisp.textContent = timeStr;
+      if (expandedDisp) expandedDisp.textContent = `${timeStr}.${decimal}`;
+    }
+
+    setInterval(() => {
+      // Stopwatch logic
+      if (isTimerRunning && currentActivity === 'timer') {
+        stopwatchSeconds += 0.1;
+        updateStopwatchDisplay();
+      }
+
+      // Call timer logic
+      if (currentActivity === 'call') {
+        callSeconds += 1;
+        const mins = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+        const secs = String(callSeconds % 60).padStart(2, '0');
+        const formatted = `${mins}:${secs}`;
+        const compactCall = document.getElementById('compact-call-timer');
+        const expCall = document.getElementById('expanded-call-timer');
+        if (compactCall) compactCall.textContent = formatted;
+        if (expCall) expCall.textContent = formatted;
+      }
+    }, 100);
+
+    // Sync system clock
+    function updateClock() {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      hours = hours % 12 || 12;
+      const timeString = `${String(hours).padStart(2, '0')}:${minutes}`;
+      
+      const phoneClock = document.getElementById('phone-clock');
+      const lockClock = document.getElementById('lockscreen-clock');
+      if (phoneClock) phoneClock.textContent = timeString;
+      if (lockClock) lockClock.textContent = timeString;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Initialize initial state
+    applyCompactDimensions();
+    showActiveCompactContent();
+  </script>
 </body>
 </html>
