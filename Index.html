@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-select=none" />
+  <title>Dynamic Island Gestures</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="viewport">
+    <!-- Camera cutout reference -->
+    <div class="camera-cutout"></div>
+
+    <!-- The Island Element -->
+    <div id="island" class="island compact">
+      <!-- Minimal Compact State Content -->
+      <div class="content compact-content">
+        <span class="dot"></span>
+        <span class="label">Now Playing</span>
+      </div>
+
+      <!-- Expanded State Content -->
+      <div class="content expanded-content">
+        <div class="expanded-header">
+          <div class="track-artwork"></div>
+          <div class="track-meta">
+            <h4>Song Title</h4>
+            <p>Artist Name</p>
+          </div>
+        </div>
+        <div class="expanded-controls">
+          <button type="button">⏮</button>
+          <button type="button">⏸</button>
+          <button type="button">⏭</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="reset-btn" class="reset-btn">Reset Island</button>
+  </div>
+
+  <script src="gesture.js"></script>
+</body>
+</html>
